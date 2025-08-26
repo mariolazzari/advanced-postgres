@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  postgis17:
+    image: postgis/postgis:17-3.5
+    container_name: postgis17
+    restart: always
+    environment:
+      POSTGRES_USER: mario
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: loonydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis17_data:/var/lib/postgresql/data
+
+volumes:
+  postgis17_data:
