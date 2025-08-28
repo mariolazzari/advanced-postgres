@@ -112,3 +112,128 @@ SELECT 'deep & learning'::tsquery @@ 'Build and train simple machine learning mo
 SELECT 'Build and train simple machine learning models'::tsvector @@ 'models'::tsquery;
 -- This will return "false"
 SELECT 'Build and train simple machine learning models'::tsvector @@ 'deep'::tsquery;
+
+-- logical operators
+SELECT *
+FROM online_courses
+WHERE to_tsquery('learn') @@ to_tsvector(title);
+
+-- Search using or
+SELECT * 
+FROM online_courses
+WHERE to_tsquery('machine | deep') @@ to_tsvector(title || description);
+
+-- Search using not
+SELECT * 
+FROM 
+    online_courses, 
+    to_tsvector(title || description) document
+WHERE to_tsquery('programming & !days') @@ document;
+
+-- Using different languages
+SET default_text_search_config = 'pg_catalog.spanish';
+
+SELECT to_tsvector('english', 'The cake is good');
+SELECT to_tsvector('spanish', 'The cake is good');
+SELECT to_tsvector('simple', 'The cake is good');
+
+SELECT to_tsvector('english', 'el pastel es bueno');
+SELECT to_tsvector('spanish', 'el pastel es bueno');
+SELECT to_tsvector('simple', 'el pastel es bueno');
+
+SET default_text_search_config = 'pg_catalog.spanish';
+
+SELECT to_tsvector(
+  'Bienvenido al tutorial de PostgreSQL.' ||
+  'PostgreSQL se utiliza para almacenar datos.' ||
+  'tener una buena experiencia!'
+) @@ to_tsquery('buena');
+-- We see this is also true as buena is present
+
+-- Now let's look at another word
+SELECT to_tsvector(
+  'Bienvenido al tutorial de PostgreSQL.' ||
+  'PostgreSQL se utiliza para almacenar datos.' ||
+  'tener una buena experiencia!'
+) @@ to_tsquery('buen');
+
+-- We see this also is true as buen and buena mean the same 
+
+-- Let's search a word that's not present
+SELECT to_tsvector(
+  'Bienvenido al tutorial de PostgreSQL.' ||
+  'PostgreSQL se utiliza para almacenar datos.' ||
+  'tener una buena experiencia!'
+) @@ to_tsquery('mala');
+
+-- We see this shows false
+
+-- Search parameters
+
+-- So let's create a table for storing all of this 
+-- (notice the tsvector data type for the document_tokens column)
+CREATE TABLE documents  
+(
+    document_id SERIAL,
+    document_text TEXT,
+    document_tokens TSVECTOR,
+
+    CONSTRAINT documents_pkey PRIMARY KEY (document_id)
+)
+
+-- Now let's insert the documents into it
+INSERT INTO documents (document_text) VALUES  
+('The greatest glory in living lies not in never falling, but in rising every time we fall. -Nelson Mandela'),
+('The way to get started is to quit talking and begin doing. -Walt Disney'),
+('When you reach the end of your rope, tie a knot in it and hang on. -Franklin D. Roosevelt'),
+('Never let the fear of striking out keep you from playing the game. -Babe Ruth'),
+('You have brains in your head. You have feet in your shoes. You can steer yourself any direction you choose. -Dr. Seuss'),
+('Life is a long lesson in humility. -James M. Barrie');
+
+-- The output will be
+INSERT 0 6
+
+-- Finally, a little UPDATE command will conveniently populate the tokens column
+UPDATE documents d1  
+SET document_tokens = to_tsvector(d1.document_text)  
+FROM documents d2; 
+
+SELECT document_id, document_text, document_tokens FROM documents
+WHERE document_tokens @@ websearch_to_tsquery('begin doing'); 
+
+SELECT document_id, document_text, document_tokens FROM documents
+WHERE document_tokens @@ to_tsquery('hang & on'); 
+
+-- There should be one document in the result
+
+SELECT document_id, document_text, document_tokens FROM documents
+WHERE document_tokens @@ to_tsquery('long <-> lesson'); 
+
+-- One document with the term "long lesson"
+
+SELECT document_id, document_text, document_tokens FROM documents
+WHERE document_tokens @@ to_tsquery('direction <2> choose'); 
+
+-- One document with "direction you choose"
+
+SELECT document_id, document_text, document_tokens FROM documents
+WHERE document_tokens @@ to_tsquery('fear <3> out'); 
+
+-- Ranking results
+SELECT document_text, ts_rank(to_tsvector(document_text), to_tsquery('life|fear')) AS rank
+FROM documents
+ORDER BY rank DESC
+LIMIT 10;
+
+SELECT document_text, ts_rank(to_tsvector(document_text), to_tsquery('never')) AS rank
+FROM documents
+ORDER BY rank DESC
+LIMIT 10;
+
+-- Dictionaries
+CREATE TEXT SEARCH DICTIONARY public.simple_dict (
+    TEMPLATE = pg_catalog.simple,
+    STOPWORDS = english
+);
+
+SELECT ts_lexize('public.simple_dict', 'Shoes');
