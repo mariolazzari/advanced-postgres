@@ -147,3 +147,194 @@ SELECT
     *
 FROM
     bank_accounts;
+
+-- Read committed isolation level
+BEGIN;
+
+INSERT INTO
+    bank_accounts (name, balance)
+VALUES
+    ('Nancy', 15000);
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- Session B
+-- You should not be able to see the record for Nancy
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- Session A
+COMMIT;
+
+-- Session B
+--After commit you should now be able to see the record for Nancy
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- Repeatable read isolation level
+-- Session A
+BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- Session B
+BEGIN;
+
+UPDATE bank_accounts
+SET
+    balance = 10000
+WHERE
+    name = 'Jack';
+
+COMMIT;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- balance for Jack should be 10000
+-- Session A
+SELECT
+    *
+FROM
+    bank_accounts;
+
+COMMIT;
+
+-- Multiple reads in the same transaction got different results 
+-- To avoid this we can use repeatable read isolation level
+-- Session A
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- We see the balance is now 10000 for Jack
+-- Session B
+BEGIN;
+
+UPDATE bank_accounts
+SET
+    balance = 20000
+WHERE
+    name = 'Jack';
+
+COMMIT;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- We see the balance is now 20000 for Jack
+-- Session A
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- We see the balance did not change in Session A tt is still 10000 for Jack
+COMMIT;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- Concurrent changes should be blocked and for that we can use serialization isolation level
+-- Session A
+BEGIN;
+
+UPDATE bank_accounts
+SET
+    balance = 0
+WHERE
+    name = 'Nancy';
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- We see the balance is updated Nancy should have 0 balance
+-- Session B
+BEGIN;
+
+UPDATE bank_accounts
+SET
+    balance = 100000
+WHERE
+    name = 'Nancy';
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- We see the update statement is not completed
+-- The query runs for a long time till we commit the transaction in Session A
+-- Session A
+COMMIT;
+
+-- Session B
+-- Now check the query in Session B we see the query has run successfully
+-- This is because PostgreSQL places a lock to prevent another update until the first transaction is finished
+COMMIT;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- Now if we check Nancy's balance it is 10000 and not 0
+-- So the first transaction’s change is lost, because the second one “overwrote” the row
+-- To avoid this let's use serialization
+-- Session A
+BEGIN;
+
+UPDATE bank_accounts
+SET
+    balance = 0
+WHERE
+    name = 'Nancy';
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- Here Nancy's balance should be 0
+-- Session B
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+UPDATE bank_accounts
+SET
+    balance = 100000
+WHERE
+    name = 'Nancy';
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- We see the query will not end
+-- Session A
+COMMIT;
+
+-- Now check Session B and we see the query is not executed
+-- It throws error:
+-- ERROR:  could not serialize access due to concurrent update
