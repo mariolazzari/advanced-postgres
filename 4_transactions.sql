@@ -64,3 +64,86 @@ SELECT
     *
 FROM
     bank_accounts;
+
+-- Rollback committed transaction
+BEGIN;
+
+UPDATE bank_accounts
+SET
+    balance = balance - 900
+WHERE
+    name = 'Jack';
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+UPDATE bank_accounts
+SET
+    balance = balance + 900
+WHERE
+    name = 'Dora';
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+COMMIT;
+
+ROLLBACK;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+-- The rollback command should give you a warning, no transaction in progress
+-- The table will also have the updates made
+-- Ie, we cannot rollback a committed transaction
+-- Savepoints
+BEGIN;
+
+INSERT INTO
+    bank_accounts (name, balance)
+VALUES
+    ('Julia', 100000);
+
+SAVEPOINT inserted_julia;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+UPDATE bank_accounts
+SET
+    balance = balance - 2000
+WHERE
+    name = 'Julia';
+
+UPDATE bank_accounts
+SET
+    balance = balance + 2000
+WHERE
+    name = 'Jack';
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+ROLLBACK TO SAVEPOINT inserted_julia;
+
+SELECT
+    *
+FROM
+    bank_accounts;
+
+ROLLBACK;
+
+SELECT
+    *
+FROM
+    bank_accounts;
