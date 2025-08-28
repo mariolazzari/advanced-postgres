@@ -101,3 +101,14 @@ SELECT
 -- stop words ("in", "a", "the", etc) were removed
 SELECT
     websearch_to_tsquery ('The machine learning');
+
+-- @@ operator
+
+-- This will return "true"
+SELECT 'machine & learning'::tsquery @@ 'Build and train simple machine learning models'::tsvector;
+-- This will return "false"
+SELECT 'deep & learning'::tsquery @@ 'Build and train simple machine learning models'::tsvector;
+--This will return "true"
+SELECT 'Build and train simple machine learning models'::tsvector @@ 'models'::tsquery;
+-- This will return "false"
+SELECT 'Build and train simple machine learning models'::tsvector @@ 'deep'::tsquery;
